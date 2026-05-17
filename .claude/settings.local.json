@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/ -maxdepth 4 -iname \"*buddy*\" -o -iname \"*workbuddy*\" 2>/dev/null | head -20)",
+      "Read(//c//**)",
+      "Bash(ls -la /c/Users/Administrator/OneDrive/Desktop/ 2>/dev/null | head -30; echo \"---\"; ls -la /c/Users/Administrator/Public/Desktop/ 2>/dev/null | head -30)",
+      "Read(//c/Users/Administrator/OneDrive/**)",
+      "Read(//c/Users/Administrator/Public/**)",
+      "Bash(find /c/ -maxdepth 5 -iname \"*workbuddy*\" -not -path \"*/WinSxS/*\" 2>/dev/null)",
+      "Bash(tasklist.exe)",
+      "Bash(find /c/ -maxdepth 5 -iname \"*workbuddy*\" -type f 2>/dev/null | head -30)",
+      "Bash(start \"\" \"/c/Users/Administrator/AppData/Local/Programs/WorkBuddy/WorkBuddy.exe\")",
+      "Bash(\"/c/Users/Administrator/AppData/Local/Programs/WorkBuddy/WorkBuddy.exe\")",
+      "Bash(powershell -Command \"Start-Process -FilePath 'C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\Programs\\\\WorkBuddy\\\\WorkBuddy.exe'\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\Temp\\\\make_shortcut.ps1\")",
+      "Read(//e//**)",
+      "Bash(xxd)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Administrator\\AppData\\Local\\Temp"
+    ]
+  }
+}
