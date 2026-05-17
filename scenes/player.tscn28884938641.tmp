@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b7ksqk06y5mr3"]
 
-[ext_resource type="Script" uid="uid://dx3b8ller6xas" path="res://scripts/player_v2.gd" id="1_g2els"]
+[ext_resource type="Script" uid="uid://c65cfnimlk4u" path="res://scripts/player.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://cgyvjqbktefg2" path="res://assets/playersheet.png" id="2_g2els"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_g2els"]
@@ -709,7 +709,7 @@ radius = 24.186773
 
 [node name="Player" type="CharacterBody2D" unique_id=1631083427]
 collision_layer = 2
-script = ExtResource("1_g2els")
+script = ExtResource("1_script")
 
 [node name="CollisionShape2D_idle" type="CollisionShape2D" parent="." unique_id=5800028]
 position = Vector2(-13, 4.5)

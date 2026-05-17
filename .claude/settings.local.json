@@ -14,7 +14,9 @@
       "Bash(powershell -Command \"Start-Process -FilePath 'C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\Programs\\\\WorkBuddy\\\\WorkBuddy.exe'\")",
       "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\Temp\\\\make_shortcut.ps1\")",
       "Read(//e//**)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(python -c ' *)",
+      "Bash(python3 -c ' *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\AppData\\Local\\Temp"

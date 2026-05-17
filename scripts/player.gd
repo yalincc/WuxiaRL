@@ -74,7 +74,7 @@ enum State {
 @onready var hurtbox: Area2D = $Hurtbox
 
 # ---------- 内部状态 ----------
-var current_state: State = State.IDLE
+var current_state: int = State.IDLE
 var facing_right: bool = true
 var is_locked: bool = false
 
@@ -114,6 +114,24 @@ var current_health: float = 0.0
 
 # 攻击命中追踪（防止同一招重复打同一目标）
 var hit_targets: Array[Node2D] = []
+
+# ---------- 精灵偏移修正（补偿 spritesheet 各帧视觉中心不一致） ----------
+# 以 idle 帧 (frame 2, 内容中心 18.5) 为基准
+const SPRITE_OFFSET_X := {
+	State.IDLE: 0.0,
+	State.WALK: -12.0,
+	State.RUN: -13.0,
+	State.JUMP: 0.0,
+	State.ATTACK: -13.0,
+	State.BO: -15.0,
+	State.AIR_ATTACK: -13.0,
+	State.FALL_ATTACK: -13.0,
+	State.DEFEND: -12.5,
+	State.PARRY: -13.0,
+	State.ROLL: -12.5,
+	State.HURT: 0.0,
+	State.DEAD: 0.0,
+}
 
 # ---------- 动画 → 状态名映射 ----------
 const ANIM_MAP := {
@@ -196,6 +214,9 @@ func _physics_process(delta: float) -> void:
 		State.ROLL:        _tick_roll(delta)
 		State.HURT:        _tick_hurt(delta)
 		State.DEAD:        pass
+
+	# 每帧修正精灵偏移，补偿 spritesheet 各帧视觉中心不一致
+	sprite.offset.x = SPRITE_OFFSET_X.get(current_state, 0.0)
 
 
 # ===================== idle =====================
@@ -355,7 +376,7 @@ func _tick_hurt(delta: float) -> void:
 
 # ===================== 状态切换 =====================
 
-func _switch(new_state: State) -> void:
+func _switch(new_state: int) -> void:
 	if is_locked and new_state != State.PARRY:
 		return
 	current_state = new_state

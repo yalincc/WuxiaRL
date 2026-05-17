@@ -1,0 +1,324 @@
+[gd_scene format=3 uid="uid://d2vrly55lqghd"]
+
+[ext_resource type="Script" path="res://scripts/player_main_fsm.gd" id="1_main"]
+[ext_resource type="Texture2D" uid="uid://cgyvjqbktefg2" path="res://assets/playersheet.png" id="2_sprite"]
+
+[ext_resource type="Script" path="res://scripts/fsm/hit_box.gd" id="3_hitbox"]
+[ext_resource type="Script" path="res://scripts/fsm/hurt_box.gd" id="4_hurtbox"]
+[ext_resource type="Script" path="res://scripts/fsm/input_buffer.gd" id="5_input"]
+[ext_resource type="Script" path="res://scripts/fsm/state_machine.gd" id="6_sm"]
+[ext_resource type="Script" path="res://scripts/fsm/idle.gd" id="7_idle"]
+[ext_resource type="Script" path="res://scripts/fsm/move.gd" id="8_move"]
+[ext_resource type="Script" path="res://scripts/fsm/run.gd" id="9_run"]
+[ext_resource type="Script" path="res://scripts/fsm/jump.gd" id="10_jump"]
+[ext_resource type="Script" path="res://scripts/fsm/attack_normal.gd" id="11_atk_n"]
+[ext_resource type="Script" path="res://scripts/fsm/attack_skill.gd" id="12_atk_s"]
+[ext_resource type="Script" path="res://scripts/fsm/defense.gd" id="13_def"]
+[ext_resource type="Script" path="res://scripts/fsm/defense_counter.gd" id="14_defc"]
+[ext_resource type="Script" path="res://scripts/fsm/dodge.gd" id="15_dodge"]
+[ext_resource type="Script" path="res://scripts/fsm/air_attack.gd" id="16_air"]
+[ext_resource type="Script" path="res://scripts/fsm/air_down_attack.gd" id="17_aird"]
+[ext_resource type="Script" path="res://scripts/fsm/land.gd" id="18_land"]
+[ext_resource type="Script" path="res://scripts/fsm/hit_stun.gd" id="19_hitstun"]
+
+[sub_resource type="RectangleShape2D" id="RectShape"]
+size = Vector2(32, 49)
+
+[sub_resource type="RectangleShape2D" id="HurtShape"]
+size = Vector2(32, 32)
+
+[sub_resource type="RectangleShape2D" id="HitShape"]
+size = Vector2(40, 40)
+
+[sub_resource type="Animation" id="Anim_idle"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(128, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_walk"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(320, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_run"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(384, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_jump"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(192, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_atk"]
+length = 0.4
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(0, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_skill"]
+length = 0.6
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(448, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_defense"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(64, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_dodge"]
+length = 0.4
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(256, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_land"]
+length = 0.2
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(128, 0, 64, 64)]
+}
+
+[sub_resource type="Animation" id="Anim_hitstun"]
+length = 0.4
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:region_rect")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Rect2(128, 0, 64, 64)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimLib"]
+_data = {
+&"RESET": SubResource("Anim_idle"),
+&"idle": SubResource("Anim_idle"),
+&"walk": SubResource("Anim_walk"),
+&"run": SubResource("Anim_run"),
+&"jump": SubResource("Anim_jump"),
+&"attack_normal": SubResource("Anim_atk"),
+&"attack_skill": SubResource("Anim_skill"),
+&"defense": SubResource("Anim_defense"),
+&"defense_counter": SubResource("Anim_atk"),
+&"dodge": SubResource("Anim_dodge"),
+&"air_attack": SubResource("Anim_atk"),
+&"air_down_attack": SubResource("Anim_atk"),
+&"land": SubResource("Anim_land"),
+&"hit_stun": SubResource("Anim_hitstun")
+}
+
+# ============ 节点树 ============
+[node name="PlayerFSM" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_main")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-13, 4.5)
+shape = SubResource("RectShape")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_sprite")
+region_enabled = true
+region_rect = Rect2(128, 0, 64, 64)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+root_node = NodePath("../Sprite2D")
+libraries/ = SubResource("AnimLib")
+
+[node name="StateMachine" type="Node" parent="."]
+script = ExtResource("6_sm")
+
+[node name="Idle" type="Node" parent="StateMachine"]
+script = ExtResource("7_idle")
+
+[node name="Move" type="Node" parent="StateMachine"]
+script = ExtResource("8_move")
+
+[node name="Run" type="Node" parent="StateMachine"]
+script = ExtResource("9_run")
+
+[node name="Jump" type="Node" parent="StateMachine"]
+script = ExtResource("10_jump")
+
+[node name="AttackNormal" type="Node" parent="StateMachine"]
+script = ExtResource("11_atk_n")
+
+[node name="AttackSkill" type="Node" parent="StateMachine"]
+script = ExtResource("12_atk_s")
+
+[node name="Defense" type="Node" parent="StateMachine"]
+script = ExtResource("13_def")
+
+[node name="DefenseCounter" type="Node" parent="StateMachine"]
+script = ExtResource("14_defc")
+
+[node name="Dodge" type="Node" parent="StateMachine"]
+script = ExtResource("15_dodge")
+
+[node name="AirAttack" type="Node" parent="StateMachine"]
+script = ExtResource("16_air")
+
+[node name="AirDownAttack" type="Node" parent="StateMachine"]
+script = ExtResource("17_aird")
+
+[node name="Land" type="Node" parent="StateMachine"]
+script = ExtResource("18_land")
+
+[node name="HitStun" type="Node" parent="StateMachine"]
+script = ExtResource("19_hitstun")
+
+[node name="InputBuffer" type="Node" parent="."]
+script = ExtResource("5_input")
+
+[node name="HurtBox" type="Area2D" parent="."]
+collision_layer = 5
+collision_mask = 4
+script = ExtResource("4_hurtbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox"]
+position = Vector2(-13, 5)
+shape = SubResource("HurtShape")
+
+[node name="HitBoxes" type="Node" parent="."]
+
+[node name="AttackNormal" type="Area2D" parent="HitBoxes"]
+collision_layer = 3
+collision_mask = 6
+script = ExtResource("3_hitbox")
+attack_type = "normal"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBoxes/AttackNormal"]
+position = Vector2(10, 0)
+shape = SubResource("HitShape")
+
+[node name="AttackSkill" type="Area2D" parent="HitBoxes"]
+collision_layer = 3
+collision_mask = 6
+script = ExtResource("3_hitbox")
+attack_type = "skill"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBoxes/AttackSkill"]
+position = Vector2(10, 0)
+shape = SubResource("HitShape")
+
+[node name="AirAttack" type="Area2D" parent="HitBoxes"]
+collision_layer = 3
+collision_mask = 6
+script = ExtResource("3_hitbox")
+attack_type = "air"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBoxes/AirAttack"]
+position = Vector2(10, 0)
+shape = SubResource("HitShape")
+
+[node name="AirDownAttack" type="Area2D" parent="HitBoxes"]
+collision_layer = 3
+collision_mask = 6
+script = ExtResource("3_hitbox")
+attack_type = "air_down"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBoxes/AirDownAttack"]
+position = Vector2(10, 8)
+shape = SubResource("HitShape")
+
+[node name="DefenseCounter" type="Area2D" parent="HitBoxes"]
+collision_layer = 3
+collision_mask = 6
+script = ExtResource("3_hitbox")
+attack_type = "counter"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBoxes/DefenseCounter"]
+position = Vector2(10, 0)
+shape = SubResource("HitShape")

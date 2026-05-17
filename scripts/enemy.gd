@@ -51,7 +51,7 @@ enum State {
 @onready var vision_area: Area2D = $VisionArea
 
 # ---------- 内部状态 ----------
-var current_state: State = State.IDLE
+var current_state: int = State.IDLE
 var facing_right: bool = true
 var player: CharacterBody2D = null
 var current_health: float = 0.0
@@ -180,7 +180,7 @@ func _tick_hurt(delta: float) -> void:
 
 # ===================== 状态切换 =====================
 
-func _switch(new_state: State) -> void:
+func _switch(new_state: int) -> void:
 	current_state = new_state
 	# 进入新状态时重置速度
 	velocity = Vector2.ZERO
@@ -206,14 +206,14 @@ func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
 	hurt_timer = 0.0
 	hurt_dir = -1.0 if from_position.x > global_position.x else 1.0
 	# 攻击中被断招
-	attack_area.monitoring = false
+	attack_area.set_deferred("monitoring", false)
 	current_state = State.HURT
 	anim_player.play("idle")  # 暂无 hurt 动画
 
 
 func _die() -> void:
 	current_state = State.DEAD
-	attack_area.monitoring = false
+	attack_area.set_deferred("monitoring", false)
 	anim_player.play("idle")
 	died.emit()
 	# 简单的死亡效果：闪烁后移除
@@ -262,7 +262,7 @@ func _on_vision_area_body_exited(body: Node2D) -> void:
 
 func _on_animation_player_animation_finished(anim_name: StringName) -> void:
 	if anim_name == "attack":
-		attack_area.monitoring = false
+		attack_area.set_deferred("monitoring", false)
 		hit_targets.clear()
 		_switch(State.COOLDOWN)
 
