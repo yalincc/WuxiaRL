@@ -142,6 +142,7 @@ func _ready() -> void:
 	current_health = max_health
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	velocity = Vector2.ZERO
+	add_to_group("player")
 	if band_bottom == 0.0:
 		_auto_detect_bounds()
 	anim_player.play("idle")
@@ -196,7 +197,7 @@ func _physics_process(delta: float) -> void:
 
 # ===================== 输入缓冲 =====================
 
-func _tick_input_buffer(delta: float) -> void:
+func _tick_input_buffer(_delta: float) -> void:
 	if _attack_held and not _attack_triggered:
 		if (Time.get_ticks_msec() / 1000.0) - _attack_press_time >= long_press_threshold:
 			_attack_triggered = true
@@ -429,7 +430,7 @@ func _start_air_attack() -> void:
 	_enable_attack_area()
 	_change_state(State.AIR_ATTACK)
 
-func _start_air_down_attack(dir_x: float) -> void:
+func _start_air_down_attack(_dir_x: float) -> void:
 	_hit_targets.clear()
 	_enable_attack_area()
 	_change_state(State.AIR_DOWN_ATTACK)
@@ -488,9 +489,7 @@ func _handle_defense_hit(damage: float, from_position: Vector2) -> void:
 		_clamp_x()
 
 func _handle_dodge_hit(_damage: float) -> void:
-	var elapsed: float = (Time.get_ticks_msec() / 1000.0) - (_dodge_timer / dodge_duration)
-	# 更准确的：用进入 dodge 时的全局时间
-	# 简化：用 _dodge_timer
+	# 简化检测：用 _dodge_timer 判断完美闪避窗口
 	if _dodge_timer <= dodge_perfect_window:
 		_perfect_evasion = true
 		# 触发完美闪避（可扩展添加特效）

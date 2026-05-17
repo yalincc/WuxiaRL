@@ -1,13 +1,13 @@
 extends CharacterBody2D
 
 ## ============================================================
-## 街机清版游戏 敌人控制器
+## 街机清版游戏 敌人控制器 V2
 ##
 ## 状态机：IDLE → CHASE → ATTACK → COOLDOWN → CHASE
-##         任何状态 → HURT → 回到之前的状态
+##         任何状态 → HURT → 回到之前状态
 ##         HP归零 → DEAD
-## 碰撞层：Hurtbox(layer=6) 接受玩家攻击
-##          AttackArea(layer=4) 检测玩家受击区
+## FLOATING 模式，与玩家 V2 一致
+## 无巡逻系统，静止待机直到发现玩家
 ## ============================================================
 
 # ---------- 信号 ----------
@@ -25,9 +25,9 @@ enum State {
 }
 
 # ---------- 移动参数 ----------
-@export var walk_speed: float = 80.0
-@export var chase_speed: float = 120.0
-@export var attack_range: float = 50.0
+@export var chase_speed: float = 100.0
+@export var vertical_speed: float = 60.0
+@export var attack_range: float = 45.0
 @export var attack_damage: float = 10.0
 
 # ---------- 生命参数 ----------
@@ -40,9 +40,11 @@ enum State {
 # ---------- 冷却参数 ----------
 @export var cooldown_duration: float = 0.8
 
-# ---------- 巡逻参数 ----------
-@export var patrol_range: float = 80.0
-@export var idle_wait_time: float = 2.0
+# ---------- 可行走边界 ----------
+@export var band_left: float = 0.0
+@export var band_right: float = 480.0
+@export var band_top: float = 140.0
+@export var band_bottom: float = 230.0
 
 # ---------- 节点 ----------
 @onready var sprite: Sprite2D = $Sprite2D
@@ -56,32 +58,34 @@ var current_state: int = State.IDLE
 var facing_right: bool = true
 var player: CharacterBody2D = null
 var current_health: float = 0.0
+var previous_state: int = State.IDLE   # 受击后恢复的状态
 
 # 计时器
 var hurt_timer: float = 0.0
 var hurt_dir: float = -1.0
 var cooldown_timer: float = 0.0
-var idle_timer: float = 0.0
 
-# 巡逻
-var patrol_start_pos: Vector2 = Vector2.ZERO
-var patrol_direction: int = 1
-
-# 攻击命中追踪（防止同一招重复打）
+# 攻击命中追踪
 var hit_targets: Array[Node2D] = []
+
+# ---------- 血条 ----------
+var _hp_bar: ProgressBar = null
+var _hp_bar_timer: float = 0.0
 
 
 func _ready() -> void:
 	current_health = max_health
-	patrol_start_pos = global_position
+	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	velocity = Vector2.ZERO
 	anim_player.play("idle")
-	# 创建血条
 	_create_hp_bar()
 
 
 func _physics_process(delta: float) -> void:
+	velocity = Vector2.ZERO
+
 	match current_state:
-		State.IDLE:     _tick_idle(delta)
+		State.IDLE:     _tick_idle()
 		State.CHASE:    _tick_chase(delta)
 		State.ATTACK:   _tick_attack()
 		State.COOLDOWN: _tick_cooldown(delta)
@@ -91,66 +95,43 @@ func _physics_process(delta: float) -> void:
 
 # ===================== idle =====================
 
-func _tick_idle(delta: float) -> void:
+func _tick_idle() -> void:
 	# 看到玩家就追
 	if player:
 		_switch(State.CHASE)
-		return
-	# 等一会儿再巡逻
-	idle_timer += delta
-	if idle_timer >= idle_wait_time:
-		idle_timer = 0.0
-		_start_patrol_walk()
-
-
-func _start_patrol_walk() -> void:
-	# 巡逻：走一段路
-	var distance_from_start: float = global_position.x - patrol_start_pos.x
-	if absf(distance_from_start) > patrol_range:
-		patrol_direction *= -1
-	var target_x: float = patrol_start_pos.x + patrol_direction * patrol_range * 0.5
-	var dir: float = signf(target_x - global_position.x)
-	if dir == 0.0:
-		dir = 1.0
-	velocity.x = dir * walk_speed
-	move_and_slide()
-	_update_facing(velocity.x)
-	anim_player.play("walk")
 
 
 # ===================== chase =====================
 
-func _tick_chase(_delta: float) -> void:
+func _tick_chase(delta: float) -> void:
 	if not is_instance_valid(player):
 		player = null
 		_switch(State.IDLE)
 		return
 
 	var dist: float = global_position.distance_to(player.global_position)
-	# 进入攻击范围
 	if dist < attack_range:
 		_switch(State.ATTACK)
 		return
 
-	# 追击
-	var dir_x: float = signf(player.global_position.x - global_position.x)
-	velocity.x = dir_x * chase_speed
-	# Y 轴追击（街机清版的纵深移动）
-	var dir_y: float = signf(player.global_position.y - global_position.y)
-	velocity.y = dir_y * chase_speed * 0.5
-	move_and_slide()
-	_update_facing(velocity.x)
+	# 追击（直接移动，不用 move_and_slide）
+	var dir_x := signf(player.global_position.x - global_position.x)
+	var dir_y := signf(player.global_position.y - global_position.y)
+	global_position.x += dir_x * chase_speed * delta
+	global_position.y += dir_y * vertical_speed * delta
+	_clamp()
+
+	# 朝向玩家
+	_update_facing(dir_x)
 	anim_player.play("walk")
 
 
 # ===================== attack =====================
 
 func _tick_attack() -> void:
-	# 攻击状态：播动画，Hitbox 由动画关键帧或代码开启
 	if anim_player.current_animation != "attack":
 		anim_player.play("attack")
 		hit_targets.clear()
-		# 启用攻击判定
 		attack_area.monitoring = true
 
 
@@ -171,8 +152,8 @@ func _tick_cooldown(delta: float) -> void:
 
 func _tick_hurt(delta: float) -> void:
 	hurt_timer += delta
-	# 击退
 	global_position.x += hurt_dir * hurt_knockback * delta
+	_clamp_x()
 	if hurt_timer >= hurt_duration:
 		hurt_timer = 0.0
 		if player and is_instance_valid(player):
@@ -185,15 +166,12 @@ func _tick_hurt(delta: float) -> void:
 
 func _switch(new_state: int) -> void:
 	current_state = new_state
-	# 进入新状态时重置速度
-	velocity = Vector2.ZERO
 	match new_state:
 		State.IDLE:
 			anim_player.play("idle")
-			idle_timer = 0.0
 
 
-# ===================== 受伤（外部调用 / Hurtbox 信号） =====================
+# ===================== 受伤系统 =====================
 
 func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
 	if current_state == State.DEAD:
@@ -201,10 +179,13 @@ func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
 	if current_state == State.HURT:
 		return
 
-	# 弹出伤害数字
-	_spawn_damage_number(damage_amount)
+	# 防止负数伤害
+	var final_damage := absf(damage_amount)
 
-	current_health = maxf(current_health - damage_amount, 0.0)
+	# 弹出伤害数字
+	_spawn_damage_number(final_damage)
+
+	current_health = maxf(current_health - final_damage, 0.0)
 	health_changed.emit(current_health)
 	_update_hp_bar()
 
@@ -212,9 +193,9 @@ func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
 		_die()
 		return
 
+	# 受击
 	hurt_timer = 0.0
 	hurt_dir = -1.0 if from_position.x > global_position.x else 1.0
-	# 攻击中被断招
 	attack_area.set_deferred("monitoring", false)
 	current_state = State.HURT
 	anim_player.play("idle")  # 暂无 hurt 动画
@@ -225,33 +206,30 @@ func _die() -> void:
 	attack_area.set_deferred("monitoring", false)
 	anim_player.play("idle")
 	died.emit()
-	# 简单的死亡效果：闪烁后移除
 	var tween := create_tween()
 	tween.tween_property(sprite, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(queue_free)
 
 
-# ===================== Hurtbox 信号回调 =====================
+# ===================== 信号回调 =====================
 
 func _on_hurtbox_area_entered(_area: Area2D) -> void:
-	"""被玩家的 AttackArea 碰到 — 伤害由玩家 _on_attack_area_area_entered 统一处理，此处不重复"""
+	"""被玩家攻击框碰到 — 伤害由玩家触发，此处不重复"""
 	pass
 
-
-# ===================== AttackArea 信号回调 =====================
 
 func _on_attack_area_area_entered(area: Area2D) -> void:
 	"""攻击判定碰到了玩家的 Hurtbox"""
 	var target: Node2D = area.get_parent()
+	# 绝不会打自己
+	if target == self:
+		return
 	if target in hit_targets:
-		return  # 不重复打击
+		return
 	hit_targets.append(target)
-	# 调用玩家的受伤方法
 	if target.has_method("take_damage"):
 		target.take_damage(global_position, attack_damage)
 
-
-# ===================== VisionArea 信号回调 =====================
 
 func _on_vision_area_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D and body.has_method("take_damage"):
@@ -267,8 +245,6 @@ func _on_vision_area_body_exited(body: Node2D) -> void:
 			_switch(State.IDLE)
 
 
-# ===================== 动画结束回调 =====================
-
 func _on_animation_player_animation_finished(anim_name: StringName) -> void:
 	if anim_name == "attack":
 		attack_area.set_deferred("monitoring", false)
@@ -278,22 +254,26 @@ func _on_animation_player_animation_finished(anim_name: StringName) -> void:
 
 # ===================== 工具 =====================
 
-func _update_facing(vel_x: float) -> void:
-	if vel_x > 0.0:
-		facing_right = true
-	elif vel_x < 0.0:
-		facing_right = false
-	sprite.flip_h = !facing_right
+func _update_facing(dir_x: float) -> void:
+	if dir_x != 0.0:
+		facing_right = dir_x > 0.0
+	sprite.flip_h = not facing_right
 
 
 func get_attack_damage() -> float:
-	"""供外部查询当前攻击伤害值"""
 	return attack_damage
 
-# ===================== 敌人血条 =====================
 
-var _hp_bar: ProgressBar = null
-var _hp_bar_timer: float = 0.0
+func _clamp() -> void:
+	global_position.x = clampf(global_position.x, band_left, band_right)
+	global_position.y = clampf(global_position.y, band_top, band_bottom)
+
+
+func _clamp_x() -> void:
+	global_position.x = clampf(global_position.x, band_left, band_right)
+
+
+# ===================== 血条 =====================
 
 func _create_hp_bar() -> void:
 	_hp_bar = ProgressBar.new()
@@ -307,6 +287,7 @@ func _create_hp_bar() -> void:
 	add_child(_hp_bar)
 	_hp_bar.hide()
 
+
 func _update_hp_bar() -> void:
 	if not _hp_bar:
 		return
@@ -314,10 +295,11 @@ func _update_hp_bar() -> void:
 	_hp_bar.show()
 	_hp_bar_timer = 0.0
 
+
 func _spawn_damage_number(damage: float) -> void:
-	# 使用 DamageNumber 静态方法
 	var DamageNumberScript := preload("res://scripts/ui/damage_number.gd")
 	DamageNumberScript.spawn(get_tree().current_scene, global_position, damage)
+
 
 func _process(delta: float) -> void:
 	# 血条延迟隐藏

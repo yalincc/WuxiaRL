@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://bqqg5jvnlcprw"]
+
+[ext_resource type="Script" path="res://scripts/ui/damage_number.gd" id="1_script"]
+
+[node name="DamageNumber" type="Label"]
+script = ExtResource("1_script")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 1
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 14
+text = "10"
+horizontal_alignment = 1
+vertical_alignment = 1

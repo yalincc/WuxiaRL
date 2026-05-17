@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://1v43bjk6uei4"]
 
 [ext_resource type="Texture2D" uid="uid://u6vmajynflbr" path="res://assets/forest_bg1.png" id="1_o5qli"]
-[ext_resource type="PackedScene" uid="uid://b7ksqk06y5mr3" path="res://scenes/player.tscn" id="3_jyhfs"]
-[ext_resource type="PackedScene" uid="uid://bhb8ilgt5a0ed" path="res://scenes/enemy.tscn" id="3_sugp2"]
-[ext_resource type="Script" uid="uid://bwctjevhlnjmc" path="res://scripts/enemy.gd" id="3_tbgi4"]
+[ext_resource type="PackedScene" path="res://scenes/player_v2.tscn" id="3_jyhfs"]
+[ext_resource type="PackedScene" uid="uid://6m2mw3tdf353" path="res://scenes/enemy_v2.tscn" id="3_sugp2"]
+[ext_resource type="PackedScene" uid="uid://dupbp2ri327fx" path="res://scenes/ui/player_hud.tscn" id="4_hud"]
 
 [node name="主场景" type="Node2D" unique_id=861770412]
 
@@ -14,10 +14,11 @@ texture = ExtResource("1_o5qli")
 [node name="Camera2D" type="Camera2D" parent="." unique_id=579192740]
 offset = Vector2(240, 140)
 
-[node name="Enemy" parent="." unique_id=1631083427 instance=ExtResource("3_sugp2")]
-position = Vector2(412, 209)
-scale = Vector2(2, 2)
-script = ExtResource("3_tbgi4")
+[node name="PlayerHUD" parent="." unique_id=1588193666 instance=ExtResource("4_hud")]
 
-[node name="Player" parent="." unique_id=364921992 instance=ExtResource("3_jyhfs")]
-position = Vector2(94, 216)
+[node name="Player_v2" parent="." unique_id=1631083427 instance=ExtResource("3_jyhfs")]
+position = Vector2(104, 199)
+
+[node name="Enemy_v2" parent="." unique_id=1350815178 instance=ExtResource("3_sugp2")]
+position = Vector2(370, 186)
+scale = Vector2(2, 2)

@@ -1,9 +1,9 @@
-[gd_scene format=3 uid="uid://bhb8ilgt5a0ed"]
+[gd_scene format=3 uid="uid://6m2mw3tdf353"]
 
 [ext_resource type="Texture2D" uid="uid://488dvpyk8huy" path="res://assets/bbts.png" id="1_7p1mj"]
 [ext_resource type="Script" uid="uid://bvhu8pfk5xogb" path="res://scripts/enemy_v2.gd" id="1_md0e3"]
 
-[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_md0e3"]
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_ldfah"]
 
 [sub_resource type="Animation" id="Animation_7p1mj"]
 length = 0.001
@@ -84,12 +84,14 @@ radius = 93.0215
 [sub_resource type="CircleShape2D" id="CircleShape2D_md0e3"]
 radius = 24.186773
 
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_md0e3"]
+
 [node name="Enemy" type="CharacterBody2D" unique_id=1631083427]
 collision_layer = 2
 script = ExtResource("1_md0e3")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=5800028]
-shape = SubResource("CapsuleShape2D_md0e3")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=2034749125]
+shape = SubResource("CapsuleShape2D_ldfah")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=253563937]
 texture = ExtResource("1_7p1mj")
@@ -116,11 +118,11 @@ monitoring = false
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea" unique_id=61421068]
 shape = SubResource("CircleShape2D_md0e3")
 
-[node name="Hurtbox" type="Area2D" parent="." unique_id=479704015]
+[node name="Hurtbox" type="Area2D" parent="." unique_id=338524762]
 collision_layer = 6
 collision_mask = 3
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=1414725311]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=1693654326]
 position = Vector2(0, -2)
 shape = SubResource("CapsuleShape2D_md0e3")
 
