@@ -1,18 +1,13 @@
-extends CharacterBody2D
+extends CombatEntity
 
 ## ============================================================
 ## 2D横版动作战斗系统 - Player V2
 ##
 ## 基于开发文档（FSM状态表 + 输入缓冲 + 受击分流）
-## 适配现有 assets：复用已有动画名 idel/walk/run/attack/bo/defend/roll/hurt
-## 单文件版本，直接挂载到 player.tscn 即可运行
+## 继承 CombatEntity 基类，只保留玩家特有逻辑
 ## ============================================================
 
-# ---------- 信号 ----------
-signal health_changed(new_health: float)
-signal died
-
-# ---------- 状态枚举（严格匹配状态转换表） ----------
+# ---------- 状态枚举 ----------
 enum State {
 	IDLE,
 	WALK,
@@ -61,29 +56,14 @@ enum State {
 @export var long_press_threshold: float = 0.25  # 输入缓冲：长按判定阈值
 @export var hurt_knockback: float = 150.0
 @export var fall_attack_speed: float = 500.0
-@export var max_health: float = 100.0
-
-# ===================== 可行走边界 =====================
-@export var band_left: float = 0.0
-@export var band_right: float = 0.0
-@export var band_top: float = 0.0
-@export var band_bottom: float = 0.0
 
 # ===================== 跳跃参数 =====================
 @export var jump_height: float = 120.0   # 抛物线高度
 @export var jump_duration: float = 0.5   # 跳跃总时长
 
-# ===================== 节点引用 =====================
-@onready var sprite: Sprite2D = $Sprite2D
-@onready var anim_player: AnimationPlayer = $AnimationPlayer
-@onready var attack_area: Area2D = $AttackArea
-@onready var hurtbox: Area2D = $Hurtbox
-
 # ===================== 内部状态 =====================
 var current_state: int = State.IDLE
-var facing_right: bool = true
 var is_locked: bool = false          # 动作锁定（攻击/跳跃/翻滚/受击中）
-var current_health: float = 0.0
 
 # --- 输入缓冲 ---
 var _attack_press_time: float = 0.0
@@ -114,11 +94,7 @@ var _hurt_dir: float = 1.0
 # --- 落地 ---
 var _land_timer: float = 0.0
 
-# --- 命中追踪 ---
-var _hit_targets: Array[Node2D] = []
-
 # ===================== 动画名映射 =====================
-## 将文档规范动画名映射到现有 assets 中的实际动画名
 const ANIM_MAP := {
 	State.IDLE:            "idle",
 	State.WALK:            "walk",
@@ -131,32 +107,20 @@ const ANIM_MAP := {
 	State.DODGE:           "roll",
 	State.AIR_ATTACK:      "attack",   # 复用攻击动画
 	State.AIR_DOWN_ATTACK: "attack",   # 复用攻击动画
-	State.LAND:            "idle",     # 复用待机动画（暂无land专属）
+	State.LAND:            "idle",     # 复用待机动画
 	State.HURT:            "hurt",
 	State.DEAD:            "idle",     # 暂无死亡动画
 }
 
+
 # ===================== 初始化 =====================
 
-func _ready() -> void:
-	current_health = max_health
-	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
-	velocity = Vector2.ZERO
+func _entity_ready() -> void:
 	add_to_group("player")
-	if band_bottom == 0.0:
-		_auto_detect_bounds()
 	anim_player.play("idle")
 
-func _auto_detect_bounds() -> void:
-	var vp := get_viewport_rect().size
-	band_left = 30.0
-	band_right = vp.x - 30.0
-	band_top = vp.y * 0.65
-	band_bottom = vp.y - 40.0
-	if global_position.y < band_top or global_position.y > band_bottom:
-		global_position.y = (band_top + band_bottom) / 2.0
 
-# ===================== 主循环 =====================
+# ===================== 输入 =====================
 
 func _unhandled_input(event: InputEvent) -> void:
 	# 输入缓冲：检测攻击键松开
@@ -164,6 +128,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _attack_held and not _attack_triggered:
 			_on_light_attack()
 		_attack_held = false
+
+
+# ===================== 主循环 =====================
 
 func _physics_process(delta: float) -> void:
 	velocity = Vector2.ZERO
@@ -195,6 +162,7 @@ func _physics_process(delta: float) -> void:
 		State.HURT:            _tick_hurt(delta)
 		State.DEAD:            pass
 
+
 # ===================== 输入缓冲 =====================
 
 func _tick_input_buffer(_delta: float) -> void:
@@ -203,10 +171,10 @@ func _tick_input_buffer(_delta: float) -> void:
 			_attack_triggered = true
 			_on_skill()
 
+
 # ===================== 状态逻辑 =====================
 
 # ----- IDLE -----
-
 func _tick_idle(dir_x: float, dir_y: float) -> void:
 	if _try_action(dir_x):
 		return
@@ -214,7 +182,6 @@ func _tick_idle(dir_x: float, dir_y: float) -> void:
 		_change_state(State.WALK if not (Input.is_action_pressed("run") and dir_x != 0.0) else State.RUN)
 
 # ----- WALK -----
-
 func _tick_walk(dir_x: float, dir_y: float, delta: float) -> void:
 	if _try_action(dir_x):
 		return
@@ -229,7 +196,6 @@ func _tick_walk(dir_x: float, dir_y: float, delta: float) -> void:
 	_clamp()
 
 # ----- RUN -----
-
 func _tick_run(dir_x: float, dir_y: float, delta: float) -> void:
 	if _try_action(dir_x):
 		return
@@ -244,9 +210,7 @@ func _tick_run(dir_x: float, dir_y: float, delta: float) -> void:
 	_clamp()
 
 # ----- JUMP -----
-
 func _tick_jump(dir_x: float, delta: float) -> void:
-	# 空中按攻击
 	if Input.is_action_just_pressed("attack"):
 		var dir_y := Input.get_axis("up", "down")
 		if dir_y > 0.0:
@@ -267,39 +231,28 @@ func _tick_jump(dir_x: float, delta: float) -> void:
 		_change_state(State.LAND)
 
 # ----- ATTACK_NORMAL -----
-
 func _tick_attack_normal(_delta: float) -> void:
-	# 攻击期间锁定 X 位置防止漂移
 	global_position.x = _atk_start_pos_x
-
-	# 长按检测 → 转技能（输入缓冲触发）
 	if _attack_held and _attack_triggered:
 		_start_attack_skill()
 		return
 
 # ----- ATTACK_SKILL -----
-
 func _tick_attack_skill(_delta: float) -> void:
-	# 技能靠 animation_finished 回收
-	pass
+	pass  # 靠 animation_finished 回收
 
 # ----- DEFENSE -----
-
 func _tick_defense() -> void:
 	if not Input.is_action_pressed("defend"):
 		_unlock_to(State.IDLE)
-	# 检测防御中按闪避
 	if Input.is_action_just_pressed("roll"):
 		_start_dodge()
 
 # ----- DEFENSE_COUNTER -----
-
 func _tick_defense_counter(_delta: float) -> void:
-	# 由 animation_finished 回收
-	pass
+	pass  # 由 animation_finished 回收
 
 # ----- DODGE -----
-
 func _tick_dodge(delta: float) -> void:
 	_dodge_timer += delta
 	global_position.x += _dodge_dir * dodge_speed * delta
@@ -308,25 +261,21 @@ func _tick_dodge(delta: float) -> void:
 		_unlock_to(State.IDLE)
 
 # ----- AIR_ATTACK -----
-
 func _tick_air_attack(dir_x: float, delta: float) -> void:
 	global_position.x = _atk_start_pos_x
 	global_position.x += dir_x * _jump_h_speed * delta
 
-	# 继续下坠
 	_jump_timer += delta
 	var t := _jump_timer / jump_duration
 	var offset_y := 4.0 * jump_height * t * (t - 1.0)
 	global_position.y = _jump_start_y + offset_y
 	_clamp_x()
 
-	# 落地检测
 	if _jump_timer >= jump_duration:
 		global_position.y = _jump_start_y
 		_change_state(State.LAND)
 
 # ----- AIR_DOWN_ATTACK -----
-
 func _tick_air_down_attack(dir_x: float, delta: float) -> void:
 	global_position.y += fall_attack_speed * delta
 	global_position.x += dir_x * walk_speed * 0.3 * delta
@@ -337,20 +286,19 @@ func _tick_air_down_attack(dir_x: float, delta: float) -> void:
 		_change_state(State.LAND)
 
 # ----- LAND -----
-
 func _tick_land(delta: float) -> void:
 	_land_timer += delta
 	if _land_timer >= land_stiff_time:
 		_unlock_to(State.IDLE)
 
 # ----- HURT -----
-
 func _tick_hurt(delta: float) -> void:
 	_hurt_timer += delta
 	global_position.x += _hurt_dir * hurt_knockback * delta
 	_clamp_x()
 	if _hurt_timer >= hitstun_time:
 		_unlock_to(State.IDLE)
+
 
 # ===================== 动作触发 =====================
 
@@ -363,7 +311,6 @@ func _try_action(dir_x: float) -> bool:
 		_start_dodge(dir_x)
 		return true
 	if Input.is_action_just_pressed("attack"):
-		# 按下攻击键 → 启动输入缓冲
 		_attack_press_time = Time.get_ticks_msec() / 1000.0
 		_attack_held = true
 		_attack_triggered = false
@@ -387,14 +334,11 @@ func _start_jump() -> void:
 
 func _start_attack_normal() -> void:
 	_atk_start_pos_x = global_position.x
-	_hit_targets.clear()
 	_enable_attack_area()
 	_change_state(State.ATTACK_NORMAL)
 	is_locked = true
 
 func _start_attack_skill() -> void:
-	# 技能攻击
-	_hit_targets.clear()
 	_enable_attack_area()
 	_change_state(State.ATTACK_SKILL)
 	is_locked = true
@@ -426,21 +370,19 @@ func _start_dodge(dir_x: float = 0.0) -> void:
 
 func _start_air_attack() -> void:
 	_atk_start_pos_x = global_position.x
-	_hit_targets.clear()
 	_enable_attack_area()
 	_change_state(State.AIR_ATTACK)
 
 func _start_air_down_attack(_dir_x: float) -> void:
-	_hit_targets.clear()
 	_enable_attack_area()
 	_change_state(State.AIR_DOWN_ATTACK)
 
 func _start_defense_counter() -> void:
 	"""触发防反"""
-	_hit_targets.clear()
 	_enable_attack_area()
 	_change_state(State.DEFENSE_COUNTER)
 	is_locked = true
+
 
 # ===================== 状态切换 =====================
 
@@ -453,12 +395,12 @@ func _unlock_to(state: int) -> void:
 	_attack_held = false
 	_attack_triggered = false
 	_disable_attack_area()
-	_hit_targets.clear()
 	_change_state(state)
+
 
 # ===================== 受伤系统 =====================
 
-## 受到伤害（与现有 enemy.gd 兼容：from_position, damage）
+## 受到伤害（与现有 enemy 兼容：from_position, damage）
 func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
 	if current_state in [State.DEAD, State.HURT]:
 		return
@@ -489,10 +431,8 @@ func _handle_defense_hit(damage: float, from_position: Vector2) -> void:
 		_clamp_x()
 
 func _handle_dodge_hit(_damage: float) -> void:
-	# 简化检测：用 _dodge_timer 判断完美闪避窗口
 	if _dodge_timer <= dodge_perfect_window:
 		_perfect_evasion = true
-		# 触发完美闪避（可扩展添加特效）
 		_on_perfect_evasion()
 	# 普通无敌：直接忽略伤害
 
@@ -501,26 +441,21 @@ func _take_normal_hit(damage: float, from_position: Vector2) -> void:
 	_hurt_timer = 0.0
 	_hurt_dir = -1.0 if from_position.x > global_position.x else 1.0
 	_disable_attack_area()
-	_hit_targets.clear()
 	_change_state(State.HURT)
 	is_locked = true
 
-func _apply_damage(amount: float) -> void:
-	current_health = maxf(current_health - amount, 0.0)
-	health_changed.emit(current_health)
-	if current_health <= 0.0:
-		_die()
-
 func _on_perfect_evasion() -> void:
-	# 可扩展：播放完美闪避特效、增加资源等
 	pass
+
+
+# ===================== 死亡 =====================
 
 func _die() -> void:
 	current_state = State.DEAD
 	is_locked = true
 	anim_player.play(ANIM_MAP[State.DEAD])
-	died.emit()
-	set_physics_process(false)
+	super._die()
+
 
 # ===================== 攻击伤害查询 =====================
 
@@ -533,28 +468,6 @@ func get_attack_damage() -> float:
 		State.DEFENSE_COUNTER: return counter_damage
 	return normal_attack_damage
 
-# ===================== 攻击框管理 =====================
-
-func _enable_attack_area() -> void:
-	attack_area.monitoring = true
-
-func _disable_attack_area() -> void:
-	attack_area.monitoring = false
-	_hit_targets.clear()
-
-func _on_attack_area_area_entered(area: Area2D) -> void:
-	"""攻击框碰到敌人的 HurtBox"""
-	var target: Node2D = area.get_parent()
-	if target in _hit_targets or target == self:
-		return
-	_hit_targets.append(target)
-	var dmg: float = get_attack_damage()
-	if target.has_method("take_damage"):
-		target.take_damage(global_position, dmg)
-
-func _on_hurtbox_area_entered(_area: Area2D) -> void:
-	"""被敌方攻击框碰到 — 伤害由敌方攻击框触发，此处不重复处理"""
-	pass
 
 # ===================== 动画结束回调 =====================
 
@@ -567,12 +480,3 @@ func _on_animation_player_animation_finished(anim_name: StringName) -> void:
 		"bo":
 			if current_state == State.ATTACK_SKILL:
 				_unlock_to(State.IDLE)
-
-# ===================== 工具 =====================
-
-func _clamp() -> void:
-	global_position.x = clampf(global_position.x, band_left, band_right)
-	global_position.y = clampf(global_position.y, band_top, band_bottom)
-
-func _clamp_x() -> void:
-	global_position.x = clampf(global_position.x, band_left, band_right)
