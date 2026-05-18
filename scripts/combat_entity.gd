@@ -5,24 +5,33 @@ extends CharacterBody2D
 ## 战斗实体基类
 ##
 ## 玩家和敌人共享的基础设施：
-##   - 生命值系统 (HP / max_health / health_changed / died)
+##   - 生命值 + 韧性/霸体系统 (HP / poise / stagger)
 ##   - 朝向管理 (facing_right / _update_facing)
 ##   - 边界钳制 (_clamp / _clamp_x / 自动检测)
 ##   - 攻击框管理 (enable / disable / 防重复打击)
+##   - 伤害管道 (take_damage 带削韧 + 冲击)
 ##   - 伤害数字生成
 ##
 ## 子类需要实现：
 ##   - take_damage()  — 具体受伤逻辑（防御/闪避判定等）
 ##   - get_attack_damage() — 根据当前状态返回伤害值
+##   - get_poise_damage()  — 根据当前攻击返回削韧值
+##   - get_impact_level()  — 根据当前攻击返回冲击等级
 ##   - _entity_ready() — 额外初始化（可选）
 ## ============================================================
 
 # ---------- 信号 ----------
 signal health_changed(new_health: float)
+signal poise_broken       # 韧性被击破（触发硬直）
 signal died
 
 # ---------- 生命参数 ----------
 @export var max_health: float = 100.0
+
+# ---------- 韧性系统 ----------
+## 韧性值：0=无霸体（杂兵），>0=有霸体条（精英/Boss）
+## 受击时削减，归零时触发硬直并重置
+@export var max_poise: float = 0.0
 
 # ---------- 可行走边界 ----------
 @export var band_left: float = 0.0
@@ -39,6 +48,7 @@ var hurtbox: Area2D
 # ---------- 内部状态 ----------
 var facing_right: bool = true
 var current_health: float = 0.0
+var current_poise: float = 0.0
 
 # --- 攻击命中追踪（防止同一招重复打击同一目标） ---
 var _hit_targets: Array[Node2D] = []
@@ -48,6 +58,7 @@ var _hit_targets: Array[Node2D] = []
 
 func _ready() -> void:
 	current_health = max_health
+	current_poise = max_poise
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	velocity = Vector2.ZERO
 	_setup_nodes()
@@ -64,7 +75,7 @@ func _setup_nodes() -> void:
 	anim_player = $AnimationPlayer
 	attack_area = $AttackArea
 	hurtbox = $Hurtbox
-	# 连接碰撞信号（.tscn 中已有连接的可以被覆盖，此处做兜底）
+	# 连接碰撞信号（.tscn 中已有连接的兜底）
 	if attack_area and not attack_area.area_entered.is_connected(_on_attack_area_area_entered):
 		attack_area.area_entered.connect(_on_attack_area_area_entered)
 	if hurtbox and not hurtbox.area_entered.is_connected(_on_hurtbox_area_entered):
@@ -112,6 +123,7 @@ func _disable_attack_area() -> void:
 	_hit_targets.clear()
 
 ## 攻击框碰到对方受击框时触发
+## 将攻击者的伤害/削韧/冲击打包传给防守方
 func _on_attack_area_area_entered(area: Area2D) -> void:
 	var target: Node2D = area.get_parent()
 	# 防自伤 + 防重复打击
@@ -119,9 +131,11 @@ func _on_attack_area_area_entered(area: Area2D) -> void:
 		return
 	_hit_targets.append(target)
 
-	var dmg: float = get_attack_damage()
 	if target.has_method("take_damage"):
-		target.take_damage(global_position, dmg)
+		var dmg: float = get_attack_damage()
+		var pdmg: float = get_poise_damage()
+		var impact: int = get_impact_level()
+		target.take_damage(global_position, dmg, pdmg, impact)
 
 ## 被敌方攻击框碰到 — 伤害由攻击方统一处理，此处不重复
 func _on_hurtbox_area_entered(_area: Area2D) -> void:
@@ -134,9 +148,31 @@ func _on_hurtbox_area_entered(_area: Area2D) -> void:
 func get_attack_damage() -> float:
 	return 10.0
 
-## 受到伤害（子类实现具体逻辑：防御判定/闪避判定等）
-func take_damage(_from_position: Vector2, _damage_amount: float = 10.0) -> void:
+## 获取当前攻击削韧值（子类根据状态重写）
+func get_poise_damage() -> float:
+	return 10.0
+
+## 获取当前攻击冲击等级（子类根据状态重写）
+## 0=无反应 1=轻击退 2=重击退 3=击飞 4=击倒
+func get_impact_level() -> int:
+	return 1
+
+## 受到伤害（子类实现具体防御/闪避判定逻辑）
+## [param poise_damage] 削韧值
+## [param impact_level] 冲击等级 (0-4)
+func take_damage(_from_position: Vector2, _damage_amount: float = 10.0, _poise_damage: float = 10.0, _impact_level: int = 1) -> void:
 	push_warning("CombatEntity.take_damage: should be overridden by subclass")
+
+## 削减韧性值，返回 true 表示韧性被击破
+func _apply_poise_damage(amount: float) -> bool:
+	if max_poise <= 0.0:
+		return true  # 无韧性 = 每次受击都硬直
+	current_poise = maxf(current_poise - amount, 0.0)
+	if current_poise <= 0.0:
+		current_poise = max_poise
+		poise_broken.emit()
+		return true
+	return false
 
 ## 扣除生命值 + 发信号 + 死亡检测
 func _apply_damage(amount: float) -> void:

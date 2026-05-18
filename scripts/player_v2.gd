@@ -41,6 +41,19 @@ enum State {
 @export var air_down_attack_damage: float = 20.0
 @export var attack_duration: float = 0.4       # 攻击状态持续时间
 
+# ===================== 削韧 + 冲击参数 =====================
+@export var normal_poise_damage: float = 5.0
+@export var skill_poise_damage: float = 20.0
+@export var counter_poise_damage: float = 15.0
+@export var air_poise_damage: float = 3.0
+@export var air_down_poise_damage: float = 25.0
+
+@export var normal_impact_level: int = 1       # 轻击退
+@export var skill_impact_level: int = 2         # 重击退
+@export var counter_impact_level: int = 1       # 轻击退
+@export var air_impact_level: int = 1           # 轻击退
+@export var air_down_impact_level: int = 3      # 击飞
+
 # ===================== 防御参数 =====================
 @export var defense_damage_reduction: float = 0.8   # 防御减伤比例
 @export var counter_window: float = 0.15             # 防反窗口（秒）
@@ -90,6 +103,7 @@ var _perfect_evasion: bool = false
 # --- 受击 ---
 var _hurt_timer: float = 0.0
 var _hurt_dir: float = 1.0
+var _current_hitstun: float = 0.4  # 当前受击硬直时长（由冲击等级决定）
 
 # --- 落地 ---
 var _land_timer: float = 0.0
@@ -296,7 +310,7 @@ func _tick_hurt(delta: float) -> void:
 	_hurt_timer += delta
 	global_position.x += _hurt_dir * hurt_knockback * delta
 	_clamp_x()
-	if _hurt_timer >= hitstun_time:
+	if _hurt_timer >= _current_hitstun:
 		_unlock_to(State.IDLE)
 
 
@@ -401,7 +415,7 @@ func _unlock_to(state: int) -> void:
 # ===================== 受伤系统 =====================
 
 ## 受到伤害（与现有 enemy 兼容：from_position, damage）
-func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
+func take_damage(from_position: Vector2, damage_amount: float = 10.0, poise_damage: float = 10.0, impact_level: int = 1) -> void:
 	if current_state in [State.DEAD, State.HURT]:
 		return
 	# DEFENSE_COUNTER 全程无敌
@@ -414,7 +428,7 @@ func take_damage(from_position: Vector2, damage_amount: float = 10.0) -> void:
 		State.DODGE:
 			_handle_dodge_hit(damage_amount)
 		_:
-			_take_normal_hit(damage_amount, from_position)
+			_take_normal_hit(damage_amount, from_position, impact_level)
 
 func _handle_defense_hit(damage: float, from_position: Vector2) -> void:
 	var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _defense_enter_time
@@ -436,10 +450,17 @@ func _handle_dodge_hit(_damage: float) -> void:
 		_on_perfect_evasion()
 	# 普通无敌：直接忽略伤害
 
-func _take_normal_hit(damage: float, from_position: Vector2) -> void:
+func _take_normal_hit(damage: float, from_position: Vector2, impact_level: int = 1) -> void:
 	_apply_damage(damage)
 	_hurt_timer = 0.0
 	_hurt_dir = -1.0 if from_position.x > global_position.x else 1.0
+	# 根据冲击等级调整硬直时间
+	match impact_level:
+		0: _current_hitstun = 0.15
+		1: _current_hitstun = 0.3
+		2: _current_hitstun = 0.45
+		3: _current_hitstun = 0.6
+		_: _current_hitstun = 0.8
 	_disable_attack_area()
 	_change_state(State.HURT)
 	is_locked = true
@@ -467,6 +488,26 @@ func get_attack_damage() -> float:
 		State.AIR_DOWN_ATTACK: return air_down_attack_damage
 		State.DEFENSE_COUNTER: return counter_damage
 	return normal_attack_damage
+
+
+func get_poise_damage() -> float:
+	match current_state:
+		State.ATTACK_NORMAL:   return normal_poise_damage
+		State.ATTACK_SKILL:    return skill_poise_damage
+		State.AIR_ATTACK:      return air_poise_damage
+		State.AIR_DOWN_ATTACK: return air_down_poise_damage
+		State.DEFENSE_COUNTER: return counter_poise_damage
+	return normal_poise_damage
+
+
+func get_impact_level() -> int:
+	match current_state:
+		State.ATTACK_NORMAL:   return normal_impact_level
+		State.ATTACK_SKILL:    return skill_impact_level
+		State.AIR_ATTACK:      return air_impact_level
+		State.AIR_DOWN_ATTACK: return air_down_impact_level
+		State.DEFENSE_COUNTER: return counter_impact_level
+	return normal_impact_level
 
 
 # ===================== 动画结束回调 =====================
